@@ -1,0 +1,60 @@
+# ============================================================
+# mihomo-allinone —— 单容器部署
+#
+#   docker compose up -d
+#
+# 三个服务全在一个容器里（supervisord 管理）：
+#   :8080  面板（metacubexd）
+#   :7890  混合代理口
+#   :8765  刷新按钮页
+# ============================================================
+services:
+  mihomo:
+    # 用 GitHub Actions 构建好的镜像（改成你的用户名/仓库）
+    image: ghcr.io/YOURNAME/mihomo-allinone:latest
+    # 或本地构建：
+    # build: .
+    container_name: mihomo-allinone
+    restart: unless-stopped
+
+    environment:
+      TZ: Asia/Shanghai
+      MIHOMO_SECRET: "REDACTED_SECRET"          # 控制 API 密钥，务必修改
+      CONTROL_PORT: "8080"
+      REFRESH_PORT: "8765"
+
+      # ---- 刷新服务参数 ----
+      # 多个订阅用英文逗号分隔
+      SUB_URLS: >-
+        https://REDACTED_SUBSCRIPTION_URL_1,
+        https://REDACTED_SUBSCRIPTION_URL_2
+      REGION_WHITELIST: "DE NL GB US JP SG FI DK"   # 地区白名单
+      MAX_DELAY: "3000"                             # 延迟阈值(ms)
+      TEST_TIMEOUT: "3000"                          # 单节点测速超时(ms)
+
+      # 可选：让容器内的订阅拉取走代理（首次启动可留空）
+      # SUB_PROXY: "http://127.0.0.1:7890"
+
+    volumes:
+      # 持久化：配置、geoip 数据、订阅缓存
+      - ./data:/data
+
+    ports:
+      - "127.0.0.1:8080:8080"    # 面板
+      - "127.0.0.1:19090:9090"   # 内核 API（面板后端填这个）
+      - "127.0.0.1:7890:7890"    # 代理口
+      - "127.0.0.1:8765:8765"    # 刷新按钮
+
+    # 如需 TUN 模式（仅 Linux 宿主机），取消以下注释
+    # cap_add:
+    #   - NET_ADMIN
+    # devices:
+    #   - /dev/net/tun:/dev/net/tun
+    # network_mode: host          # 注意：与 ports 映射互斥
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

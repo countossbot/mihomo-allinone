@@ -1,0 +1,15 @@
+# 运行时数据（geoi 数据、生成的配置、订阅缓存）
+data/
+!data/.gitkeep
+
+# 构建与临时
+build/
+.filter-tmp/
+nodes-filtered.*
+__pycache__/
+*.pyc
+*.log
+
+# 本地覆盖
+docker-compose.override.yml
+.env
