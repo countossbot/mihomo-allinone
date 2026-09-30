@@ -40,7 +40,9 @@ COPY --from=metacubex/mihomo:latest /mihomo /usr/local/bin/mihomo
 COPY --from=panel-src /app/.output /app/panel
 
 # ---- 应用文件（先复制脚本，再赋权限）----
-COPY config.js /app/panel/public/config.js
+# 面板后端地址：镜像内留空，运行时由挂载的 config.js 覆盖
+RUN printf "window.__METACUBEXD_CONFIG__ = {defaultBackendURL:'',githubToken:''}\n" \
+      > /app/panel/public/config.js
 COPY scripts/ /app/scripts/
 COPY supervisord.conf /etc/supervisord.conf
 

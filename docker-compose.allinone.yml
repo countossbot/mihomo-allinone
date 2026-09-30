@@ -36,6 +36,8 @@ services:
     volumes:
       # 持久化：配置、geoip 数据、订阅缓存
       - ./data:/data
+      # 面板后端地址（按部署方式不同而不同）
+      - ./config.js:/app/panel/public/config.js:ro
 
     ports:
       - "127.0.0.1:18090:8080"   # 面板

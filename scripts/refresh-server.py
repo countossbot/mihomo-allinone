@@ -384,6 +384,10 @@ PAGE = """<!DOCTYPE html>
 
 <script>
 const $ = s => document.querySelector(s);
+// API 基址：反代场景下页面在 /manage/，接口也在 /manage/*；
+// 直连场景页面在 /，接口在 /*。用当前路径动态推导，两种都兼容。
+const BASE = location.pathname.replace(/[/]+$/, '');
+const api = p => BASE + p;
 let cfg = null;
 
 function toast(msg, err){
@@ -409,7 +413,7 @@ function renderSubs(list){
 function addSub(){ cfg.sub_urls.push(''); renderSubs(cfg.sub_urls); }
 
 async function load(){
-  cfg = await (await fetch('/config')).json();
+  cfg = await (await fetch(api('/config'))).json();
   renderSubs(cfg.sub_urls);
   $('#wl').value = cfg.region_whitelist || '';
   $('#md').value = cfg.max_delay;
@@ -430,7 +434,7 @@ function collect(){
 async function save(){
   const c = collect();
   if(!c.sub_urls.length){ toast('至少保留一个订阅', true); return false; }
-  const r = await fetch('/config', {method:'POST',
+  const r = await fetch(api('/config'), {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify(c)});
   if(r.ok){ toast('设置已保存'); return true; }
   toast('保存失败', true); return false;
@@ -440,7 +444,7 @@ async function refresh(){
   if(!await save()) return;
   const b=$('#rb'); b.disabled=true; b.textContent='刷新中…';
   $('#out').style.display='block'; $('#out').textContent='启动…';
-  try{ await fetch('/refresh',{method:'POST'}); }catch(e){}
+  try{ await fetch(api('/refresh'),{method:'POST'}); }catch(e){}
   st();
 }
 
@@ -451,7 +455,7 @@ function showLog(lines){
 
 async function st(){
   try{
-    const j = await (await fetch('/status')).json();
+    const j = await (await fetch(api('/status'))).json();
     $('#d').className = 'dot' + (j.running?' on':'');
     if(j.running){ showLog(j.log); $('#rb').disabled=true; $('#rb').textContent='刷新中…'; }
     else { $('#rb').disabled=false; $('#rb').textContent='保存并刷新'; }
@@ -462,7 +466,7 @@ async function st(){
 
 async function loadResult(){
   try{
-    const j = await (await fetch('/result')).json();
+    const j = await (await fetch(api('/result'))).json();
     if(!j.kept){ $('#resCard').style.display='none'; return; }
     $('#resCard').style.display='block';
     $('#resTime').textContent = j.generated_at || '';
