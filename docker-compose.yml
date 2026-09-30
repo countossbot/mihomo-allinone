@@ -5,10 +5,13 @@
 #
 #   docker compose up -d
 #
-# 端口：
+# 容器内固定端口：
 #   8080  面板 + 配置管理（浏览器访问）
 #   9090  内核控制 API（面板内部使用）
 #   7890  混合代理口（HTTP + SOCKS5）
+#
+# 宿主机端口可在 .env 里覆盖（默认已避开常见的 8080/7890 占用）：
+#   PANEL_PORT=18080   API_PORT=19090   PROXY_PORT=17890
 # ============================================================
 services:
   mihomo:
@@ -21,7 +24,7 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
 
       # ---- 面板控制令牌（必填）----
-      # 登录面板用。用 openssl rand -hex 16 生成。
+      # 登录面板用。生成：openssl rand -hex 16
       CONTROL_TOKEN: ${CONTROL_TOKEN:?请在 .env 里设置 CONTROL_TOKEN}
 
       # ---- 内核 API 密钥（必填，须与 CONTROL_TOKEN 不同）----
@@ -30,22 +33,23 @@ services:
       # 面板打开时预填的后端地址（容器内地址，一般不用改）
       DEFAULT_BACKEND_URL: ${DEFAULT_BACKEND_URL:-http://127.0.0.1:9090}
 
-      # 端口
+      # 容器内端口（固定，勿改）
       CONTROL_PORT: "8080"
       CLASH_API_PORT: "9090"
       MIXED_PORT: "7890"
 
+    ports:
+      # 面板：默认只绑本机，公网请在外面加反向代理
+      - "127.0.0.1:${PANEL_PORT:-18080}:8080"
+      # 内核控制 API：只绑本机
+      - "127.0.0.1:${API_PORT:-19090}:9090"
+      # 代理口：默认【不映射】，避免与本机已有的代理（如 ClashX 占用 7890）冲突。
+      # 需要从宿主机连代理时取消注释；若要对外提供代理，改 0.0.0.0 并配防火墙。
+      # - "127.0.0.1:${PROXY_PORT:-17890}:7890"
+
     volumes:
       # 持久化：配置、订阅、geoip 数据、缓存
       - ./data:/data
-
-    ports:
-      # 面板（浏览器访问；如需公网请在外面加反向代理）
-      - "127.0.0.1:8080:8080"
-      # 内核 API 只绑本机，不对外暴露
-      - "127.0.0.1:9090:9090"
-      # 代理口（客户端连接；如需外部使用改 0.0.0.0 并配防火墙）
-      - "127.0.0.1:7890:7890"
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/control/health"]
