@@ -10,11 +10,9 @@
 # ============================================================
 services:
   mihomo:
-    # 用 GitHub Actions 构建好的镜像（改成你的用户名/仓库）
-    image: ghcr.io/YOURNAME/mihomo-allinone:latest
-    # 或本地构建：
-    # build: .
-    container_name: mihomo-allinone
+    # GitHub Actions 构建的多架构镜像
+    image: ghcr.io/countossbot/mihomo-allinone:latest
+    container_name: mihomo-aio
     restart: unless-stopped
 
     environment:
@@ -40,12 +38,10 @@ services:
       - ./data:/data
 
     ports:
-      - "127.0.0.1:8080:8080"    # 面板
+      - "127.0.0.1:18090:8080"   # 面板
       - "127.0.0.1:19090:9090"   # 内核 API（面板后端填这个）
-      - "127.0.0.1:7890:7890"    # 代理口
-      - "127.0.0.1:8765:8765"    # 刷新按钮
-
-    # 如需 TUN 模式（仅 Linux 宿主机），取消以下注释
+      - "127.0.0.1:17893:7890"   # 代理口
+      - "127.0.0.1:18091:8765"   # 订阅管理页
     # cap_add:
     #   - NET_ADMIN
     # devices:
