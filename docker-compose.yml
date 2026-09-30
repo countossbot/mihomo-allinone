@@ -30,8 +30,10 @@ services:
       # ---- 内核 API 密钥（必填，须与 CONTROL_TOKEN 不同）----
       CLASH_SECRET: ${CLASH_SECRET:?请在 .env 里设置 CLASH_SECRET}
 
-      # 面板打开时预填的后端地址（容器内地址，一般不用改）
-      DEFAULT_BACKEND_URL: ${DEFAULT_BACKEND_URL:-http://127.0.0.1:9090}
+      # 面板打开时预填给【浏览器】的后端地址。
+      # 注意：这是浏览器访问的地址，不是容器内地址。
+      # 本地部署填宿主机映射的 API 端口；经反代则填反代路径。
+      DEFAULT_BACKEND_URL: ${DEFAULT_BACKEND_URL:-http://127.0.0.1:19090}
 
       # 容器内端口（固定，勿改）
       CONTROL_PORT: "8080"
