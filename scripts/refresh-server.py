@@ -14,7 +14,7 @@
 # 设置持久化：/data/settings.json
 # ============================================================
 import os, json, time, shutil, subprocess, threading, tempfile, urllib.parse, urllib.request
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 WORKDIR = os.environ.get("WORKDIR", "/app")
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
@@ -489,6 +489,9 @@ setInterval(st, 2500);
 
 
 class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    timeout = 30                    # 单连接读写超时，防挂起占用
+
     def log_message(self, *a): pass
 
     def _s(self, code, body, ct="text/plain; charset=utf-8"):
@@ -536,4 +539,9 @@ class H(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     s = load_settings()
     print(f"[refresh] :{PORT} 订阅数={len(s['sub_urls'])} 白名单={s['region_whitelist']}", flush=True)
-    HTTPServer(("0.0.0.0", PORT), H).serve_forever()
+    class Server(ThreadingHTTPServer):
+        daemon_threads = True        # 进程退出时清理线程
+        allow_reuse_address = True
+
+    print(f"[refresh] 多线程模式已启用", flush=True)
+    Server(("0.0.0.0", PORT), H).serve_forever()
