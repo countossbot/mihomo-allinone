@@ -1,47 +1,27 @@
 # mihomo-allinone
 
-单容器整合：**mihomo 内核 + metacubexd 面板 + 订阅管理/刷新服务**。
+基于**官方 [metacubexd-server](https://github.com/MetaCubeX/metacubexd)** 的一体化部署配置。
 
-多架构镜像（linux/amd64 + linux/arm64），由 GitHub Actions 原生 runner 分别构建后合并。
+单容器内含 **mihomo 内核 + metacubexd 面板**，面板自带订阅导入、节点管理、配置编辑等完整功能。
 
----
-
-## 特性
-
-| 能力 | 说明 |
-|---|---|
-| **单容器** | 内核、面板、订阅管理跑在同一容器，supervisord 管理三进程 |
-| **订阅管理页** | 网页上添加/删除订阅、改地区白名单与延迟阈值、一键刷新 |
-| **双订阅合并** | 支持任意多个订阅，第 2 个起自动加 `S2-`/`S3-` 前缀防重名 |
-| **延迟过滤** | 拉取 → 白名单过滤 → 逐个测速 → 剔除超时/高延迟节点 |
-| **负载均衡** | 支持 `sticky-sessions` / `round-robin` / `consistent-hashing` |
-| **多架构** | amd64 + arm64 双架构镜像 |
+> 本仓库只提供部署编排（compose + 配置模板），不含任何自研代码，也不含订阅、节点等敏感数据。
 
 ---
 
 ## 快速开始
 
-### 方式 1：用构建好的镜像
-
 ```bash
-# 1. 下载 compose 与 env 模板
-curl -O https://raw.githubusercontent.com/countossbot/mihomo-allinone/main/docker-compose.allinone.yml
-curl -O https://raw.githubusercontent.com/countossbot/mihomo-allinone/main/.env.example
-
-# 2. 生成密钥并填入 .env（该文件不会进版本库）
-cp .env.example .env
-sed -i '' "s/^MIHOMO_SECRET=.*/MIHOMO_SECRET=$(openssl rand -hex 16)/" .env
-
-# 3. 启动
-docker compose -f docker-compose.allinone.yml up -d
-```
-
-### 方式 2：本地构建
-
-```bash
+# 1. 克隆
 git clone https://github.com/countossbot/mihomo-allinone.git
 cd mihomo-allinone
-docker compose -f docker-compose.allinone.yml up -d --build
+
+# 2. 生成两个密钥并写入 .env
+cp .env.example .env
+sed -i '' "s/^CONTROL_TOKEN=.*/CONTROL_TOKEN=$(openssl rand -hex 16)/" .env
+sed -i '' "s/^CLASH_SECRET=.*/CLASH_SECRET=$(openssl rand -hex 16)/" .env
+
+# 3. 启动
+docker compose up -d
 ```
 
 ---
@@ -50,118 +30,114 @@ docker compose -f docker-compose.allinone.yml up -d --build
 
 | 端口 | 用途 |
 |---|---|
-| `8080` | metacubexd 面板 |
-| `9090` | 内核控制 API（面板后端填这个） |
+| `8080` | **面板**（浏览器访问，含配置管理页） |
+| `9090` | 内核控制 API（面板内部使用，不对外） |
 | `7890` | 混合代理口（HTTP + SOCKS5） |
-| `8765` | **订阅管理页** |
+
+默认全部只绑 `127.0.0.1`。若需公网访问，在外层加反向代理（见下文）。
 
 ---
 
 ## 使用
 
-### 1. 打开订阅管理页
-
-```
-http://127.0.0.1:8765
-```
-
-在这里：
-- **添加/删除订阅**（支持多个，自动合并）
-- **设置地区白名单**（如 `DE NL GB US JP SG`，留空=全部）
-- **设置延迟阈值**（超过则剔除，默认 3000ms）
-- **选择负载均衡策略**
-- 点「**保存并刷新**」→ 自动完成拉取、筛选、测速、重启内核
-
-设置会保存到 `/data/settings.json`，重启容器不丢失。
-
-### 2. 打开面板
+### 1. 打开面板
 
 ```
 http://127.0.0.1:8080
 ```
 
-后端地址已预填 `http://127.0.0.1:9090`，填入你在 `.env` 里设置的密钥即可。
+用 `.env` 里的 `CONTROL_TOKEN` 登录。
+
+### 2. 导入订阅
+
+面板左侧 **配置（Profiles）** → 新建 → 选择「订阅」→ 填入订阅链接 → 保存并激活。
+
+> 面板会把配置渲染到 `/data/active.yaml`，内核按该文件运行。
+
+### 3. 客户端连接
+
+代理口 `127.0.0.1:7890`，支持 HTTP 与 SOCKS5：
+
+```bash
+curl -x http://127.0.0.1:7890 https://ipinfo.io/ip
+curl --socks5-hostname 127.0.0.1:7890 https://ipinfo.io/ip
+```
 
 ---
 
 ## 环境变量
 
-| 变量 | 默认 | 说明 |
+| 变量 | 必填 | 说明 |
 |---|---|---|
-| `MIHOMO_SECRET` | **必填**（无默认值） | 内核控制密钥，用 `openssl rand -hex 16` 生成 |
-| `CONTROL_PORT` | `8080` | 面板端口 |
-| `REFRESH_PORT` | `8765` | 订阅管理页端口 |
-| `REGION_WHITELIST` | `DE NL GB US JP SG FI DK` | 地区白名单（首次启动的默认值） |
-| `MAX_DELAY` | `3000` | 延迟阈值 ms |
-| `TEST_TIMEOUT` | `3000` | 测速超时 ms |
-| `SUB_URLS` | 空 | 订阅地址，逗号分隔（**建议留空，在管理页里添加**） |
+| `CONTROL_TOKEN` | ✅ | 面板登录令牌 |
+| `CLASH_SECRET` | ✅ | 内核 API 密钥（须与上面不同） |
+| `DEFAULT_BACKEND_URL` | | 面板预填的后端地址，默认 `http://127.0.0.1:9090` |
+| `TZ` | | 时区，默认 `Asia/Shanghai` |
 
-> 订阅、白名单、阈值通过**管理页**修改更直观，环境变量只是首次启动的默认值。
+生成密钥：
+```bash
+openssl rand -hex 16
+```
 
 ---
 
 ## 数据持久化
 
-挂载 `/data` 后，以下内容会保留：
+挂载 `./data` 到容器 `/data`，保留：
 
 ```
-/data/config.yaml           内核运行配置（脚本生成）
-/data/settings.json         管理页设置（订阅/白名单/阈值）
-/data/nodes-filtered.json   上次筛选明细
-/data/geoip.dat             地理数据（首次启动自动下载）
-/data/geoip.metadb
-/data/geosite.dat
-```
-
----
-
-## 架构
-
-```
-┌─ 容器 mihomo-allinone ─────────────────────┐
-│  supervisord                               │
-│   ├─ mihomo   内核     :9090 / :7890       │
-│   ├─ panel    面板     :8080（Nuxt SSR）    │
-│   └─ refresh  管理页   :8765（Python）      │
-│         └─ 调 supervisorctl 重启 mihomo     │
-└────────────────────────────────────────────┘
-```
-
-> 刷新服务与内核同容器，重启内核只需 `supervisorctl restart mihomo`，
-> **不需要挂载 docker.sock**。
-
----
-
-## 刷新流程
-
-```
-点击「保存并刷新」
-   ↓
-1. 用内核拉取所有订阅（自动转换 base64/Clash 格式）
-   ↓
-2. 按地区白名单过滤节点名（第 2 个订阅起加 S2- 前缀）
-   ↓
-3. 起临时内核，逐个测速
-   ↓
-4. 剔除超时与超过阈值的节点
-   ↓
-5. 生成 config.yaml（含各订阅独立测速组 + 跨订阅合并组）
-   ↓
-6. supervisorctl restart mihomo
+data/active.yaml     内核运行配置（面板生成）
+data/profiles/       订阅配置
+data/providers/      订阅缓存
+data/cache.db        面板状态
+data/geoip.dat       地理数据（首次启动自动下载）
+data/geoip.metadb
+data/geosite.dat
 ```
 
 ---
 
-## 镜像构建
+## 公网访问（反向代理）
 
-`.github/workflows/build.yml`：
+若要让面板走域名 + HTTPS，推荐用 Caddy。示例（Cloudflare Flexible 场景）：
 
-- **build job**：矩阵 `linux/amd64 → ubuntu-24.04`、`linux/arm64 → ubuntu-24.04-arm`
-  - 用**原生 runner**，避免 QEMU 模拟（快 10 倍以上）
-  - 各自 buildx 按 digest 推送（不打 tag）
-- **merge job**：收集两个 digest，用 `docker buildx imagetools create` 合成多架构 manifest
+```caddyfile
+http://panel.example.com {
+    reverse_proxy 127.0.0.1:8080 {
+        # 面板含 SSE 实时日志流，需关闭响应缓冲
+        flush_interval -1
+    }
+}
+```
 
-产出 tag：`latest`、`sha-<7位>`、打 tag 时附 `v1.0.0` 与 `1.0.0`。
+⚠️ **务必给面板加访问控制**（Basic Auth 或 Cloudflare Access），否则公网可直连面板。
+
+---
+
+## 已知行为
+
+| 现象 | 说明 |
+|---|---|
+| 改了配置但不生效 | 面板的「保存」只写 `profiles/`，需再点一次**「激活」**才会重新渲染 `active.yaml` |
+| 删了配置但节点还在 | 删除 profile 不会清理 `active.yaml`，需**重启内核**才回落 |
+| 导入订阅报 500 | 面板拉订阅时固定用 `User-Agent: clash.meta`，部分机场会按 UA 过滤 |
+
+---
+
+## 更新镜像
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+---
+
+## 卸载
+
+```bash
+docker compose down -v      # -v 会同时删除数据卷
+```
 
 ---
 

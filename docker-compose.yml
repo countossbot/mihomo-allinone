@@ -1,0 +1,55 @@
+# ============================================================
+# mihomo-allinone —— 官方 metacubexd-server 一体化部署
+#
+# 单容器内含：mihomo 内核 + metacubexd 面板（带配置管理页）
+#
+#   docker compose up -d
+#
+# 端口：
+#   8080  面板 + 配置管理（浏览器访问）
+#   9090  内核控制 API（面板内部使用）
+#   7890  混合代理口（HTTP + SOCKS5）
+# ============================================================
+services:
+  mihomo:
+    # 官方一体化镜像：内核与面板同容器
+    image: ghcr.io/metacubex/metacubexd-server:latest
+    container_name: mihomo-aio
+    restart: unless-stopped
+
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+
+      # ---- 面板控制令牌（必填）----
+      # 登录面板用。用 openssl rand -hex 16 生成。
+      CONTROL_TOKEN: ${CONTROL_TOKEN:?请在 .env 里设置 CONTROL_TOKEN}
+
+      # ---- 内核 API 密钥（必填，须与 CONTROL_TOKEN 不同）----
+      CLASH_SECRET: ${CLASH_SECRET:?请在 .env 里设置 CLASH_SECRET}
+
+      # 面板打开时预填的后端地址（容器内地址，一般不用改）
+      DEFAULT_BACKEND_URL: ${DEFAULT_BACKEND_URL:-http://127.0.0.1:9090}
+
+      # 端口
+      CONTROL_PORT: "8080"
+      CLASH_API_PORT: "9090"
+      MIXED_PORT: "7890"
+
+    volumes:
+      # 持久化：配置、订阅、geoip 数据、缓存
+      - ./data:/data
+
+    ports:
+      # 面板（浏览器访问；如需公网请在外面加反向代理）
+      - "127.0.0.1:8080:8080"
+      # 内核 API 只绑本机，不对外暴露
+      - "127.0.0.1:9090:9090"
+      # 代理口（客户端连接；如需外部使用改 0.0.0.0 并配防火墙）
+      - "127.0.0.1:7890:7890"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/control/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
