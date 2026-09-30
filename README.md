@@ -24,10 +24,15 @@
 ### 方式 1：用构建好的镜像
 
 ```bash
-# 下载 compose 文件
+# 1. 下载 compose 与 env 模板
 curl -O https://raw.githubusercontent.com/countossbot/mihomo-allinone/main/docker-compose.allinone.yml
+curl -O https://raw.githubusercontent.com/countossbot/mihomo-allinone/main/.env.example
 
-# 修改 MIHOMO_SECRET（务必改）后启动
+# 2. 生成密钥并填入 .env（该文件不会进版本库）
+cp .env.example .env
+sed -i '' "s/^MIHOMO_SECRET=.*/MIHOMO_SECRET=$(openssl rand -hex 16)/" .env
+
+# 3. 启动
 docker compose -f docker-compose.allinone.yml up -d
 ```
 
@@ -75,7 +80,7 @@ http://127.0.0.1:8765
 http://127.0.0.1:8080
 ```
 
-后端地址已预填 `http://127.0.0.1:9090`，只需填 `MIHOMO_SECRET`。
+后端地址已预填 `http://127.0.0.1:9090`，填入你在 `.env` 里设置的密钥即可。
 
 ---
 
@@ -83,13 +88,13 @@ http://127.0.0.1:8080
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `MIHOMO_SECRET` | `REDACTED_SECRET` | 内核控制密钥（**务必修改**） |
+| `MIHOMO_SECRET` | **必填**（无默认值） | 内核控制密钥，用 `openssl rand -hex 16` 生成 |
 | `CONTROL_PORT` | `8080` | 面板端口 |
 | `REFRESH_PORT` | `8765` | 订阅管理页端口 |
 | `REGION_WHITELIST` | `DE NL GB US JP SG FI DK` | 地区白名单（首次启动的默认值） |
 | `MAX_DELAY` | `3000` | 延迟阈值 ms |
 | `TEST_TIMEOUT` | `3000` | 测速超时 ms |
-| `SUB_URLS` | 内置两个示例 | 订阅地址，逗号分隔 |
+| `SUB_URLS` | 空 | 订阅地址，逗号分隔（**建议留空，在管理页里添加**） |
 
 > 订阅、白名单、阈值通过**管理页**修改更直观，环境变量只是首次启动的默认值。
 

@@ -16,22 +16,22 @@ services:
     restart: unless-stopped
 
     environment:
-      TZ: Asia/Shanghai
-      MIHOMO_SECRET: "REDACTED_SECRET"          # 控制 API 密钥，务必修改
+      TZ: ${TZ:-Asia/Shanghai}
       CONTROL_PORT: "8080"
       REFRESH_PORT: "8765"
 
-      # ---- 刷新服务参数 ----
-      # 多个订阅用英文逗号分隔
-      SUB_URLS: >-
-        https://REDACTED_SUBSCRIPTION_URL_1,
-        https://REDACTED_SUBSCRIPTION_URL_2
-      REGION_WHITELIST: "DE NL GB US JP SG FI DK"   # 地区白名单
-      MAX_DELAY: "3000"                             # 延迟阈值(ms)
-      TEST_TIMEOUT: "3000"                          # 单节点测速超时(ms)
+      # ---- 凭证：从 .env 读取（.env 已在 .gitignore 中，不会进版本库）----
+      # 必填：内核控制密钥。[必填] 用 openssl rand -hex 16 生成
+      MIHOMO_SECRET: ${MIHOMO_SECRET:?请在 .env 里设置 MIHOMO_SECRET}
 
-      # 可选：让容器内的订阅拉取走代理（首次启动可留空）
-      # SUB_PROXY: "http://127.0.0.1:7890"
+      # ---- 订阅地址（可选）----
+      # 逗号分隔多个订阅。留空则先启动，之后在管理页 http://<host>:18091 里添加。
+      SUB_URLS: ${SUB_URLS:-}
+
+      # ---- 节点筛选（可选）----
+      REGION_WHITELIST: ${REGION_WHITELIST:-DE NL GB US JP SG FI DK}
+      MAX_DELAY: ${MAX_DELAY:-3000}
+      TEST_TIMEOUT: ${TEST_TIMEOUT:-3000}
 
     volumes:
       # 持久化：配置、geoip 数据、订阅缓存

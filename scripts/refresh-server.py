@@ -19,14 +19,14 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 WORKDIR = os.environ.get("WORKDIR", "/app")
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 PORT = int(os.environ.get("PORT", "8765"))
-SECRET = os.environ.get("MIHOMO_SECRET", "REDACTED_SECRET")
+SECRET = os.environ.get("MIHOMO_SECRET", "") or "change-me-before-expose"
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 DEFAULT_SETTINGS = {
-    "sub_urls": [
-        "https://REDACTED_SUBSCRIPTION_URL_1",
-        "https://REDACTED_SUBSCRIPTION_URL_2",
-    ],
+    # 订阅地址：优先取环境变量 SUB_URLS（compose/.env 注入），
+    # 其次由管理页写入 /data/settings.json。
+    # 此处不硬编码，避免凭证进入版本库。
+    "sub_urls": [u.strip() for u in os.environ.get("SUB_URLS", "").split(",") if u.strip()],
     "region_whitelist": os.environ.get("REGION_WHITELIST", "DE NL GB US JP SG FI DK"),
     "max_delay": int(os.environ.get("MAX_DELAY", "3000")),
     "test_timeout": int(os.environ.get("TEST_TIMEOUT", "3000")),
